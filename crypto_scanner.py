@@ -695,11 +695,17 @@ def on_message(ws,message):
     if direction == "SHORT" and trend > 0:
         return
 
-    entry, tp, sl = calculate_levels(price, direction, probability, atr)
+    entry, tp, sl = None, None, None
 
+    try:
+        entry, tp, sl = calculate_levels(price, direction, probability, atr)
+    except Exception as e:
+        print("CALCULATE LEVELS ERROR:", e, flush=True)
+        return
+    
     if entry is None:
         return
-
+        
     now = time.time()
     global last_global_alert
     if symbol not in last_alert_time:
