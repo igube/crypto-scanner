@@ -103,8 +103,8 @@ def send_alert(msg):
             "chat_id": CHAT_ID,
             "text": msg
         }, timeout=10)
-    except:
-        pass
+    except Exception as e:
+        print("TELEGRAM ERROR:", e, flush=True)
 
 
 # ---------- FREQTRADE ----------
@@ -133,7 +133,7 @@ def get_open_trades():
         return 0
 
 
-def open_trade(symbol, tp, sl, direction, leverage, probability):
+def open_trade(symbol, entry, tp, sl, direction, leverage, probability):
 
     if get_open_trades() >= MAX_FREQTRADES:
         print("Max freqtrade trades reached")
@@ -711,6 +711,8 @@ def on_message(ws,message):
     if symbol not in last_alert_time:
         last_alert_time[symbol] = 0
 
+    print("SIGNAL:", symbol, probability, flush=True)
+    
     if probability >= 78 and now - last_alert_time[symbol] > ALERT_COOLDOWN and now-last_global_alert> GLOBAL_ALERT_COOLDOWN:
         last_alert_time[symbol] = now
         send_alert(f"""
@@ -728,7 +730,7 @@ SL: {adjust_price(sl,entry,direction)}
 
         last_global_alert=now
 
-        open_trade(symbol, tp, sl, direction, leverage, probability)
+        open_trade(symbol, entry, tp, sl, direction, leverage, probability)
 
         signal_candidates.append({
             "symbol":symbol,
