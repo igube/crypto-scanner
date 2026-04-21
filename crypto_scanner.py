@@ -60,13 +60,6 @@ def format_price(price):
 BOT_TOKEN = "8780297094:AAEZhRej8tpcuCEIc8pLYtno-_UzhKMTBx8"
 CHAT_ID = "-1003936288779"
 
-FREQTRADE_URL = "http://127.0.0.1:8080"
-FREQTRADE_USER = "freqtrader"
-FREQTRADE_PASS = "freqtrader"
-
-MAX_FREQTRADES = 3
-
-active_trades = {}
 
 orderbook_cache={}
 ORDERBOOK_CACHE_TIME=5
@@ -105,98 +98,6 @@ def send_alert(msg):
         }, timeout=10)
     except Exception as e:
         print("TELEGRAM ERROR:", e, flush=True)
-
-
-# ---------- FREQTRADE ----------
-
-def get_open_trades():
-
-    try:
-
-        r = requests.get(
-            f"{FREQTRADE_URL}/api/v1/trades",
-            auth=(FREQTRADE_USER, FREQTRADE_PASS),
-            timeout=5
-        )
-
-        data = r.json()
-
-        trades = data.get("trades", [])
-
-        open_trades = [t for t in trades if t.get("is_open")]
-
-        return len(open_trades)
-
-    except Exception as e:
-
-        print("Trade check error:", e)
-        return 0
-
-
-def open_trade(symbol, entry, tp, sl, direction, leverage, probability):
-
-    if get_open_trades() >= MAX_FREQTRADES:
-        print("Max freqtrade trades reached")
-        return
-
-    pair = symbol if ":" in symbol else symbol.replace("USDT", "/USDT:USDT")
-
-    side = "long" if direction == "LONG" else "short"
-
-    try:
-
-        r = requests.post(
-            f"{FREQTRADE_URL}/api/v1/forceenter",
-            json={
-                "pair": pair,
-                "side": side,
-                "ordertype": "limit",
-                "price": entry,
-                "stakeamount": 100,
-                "leverage": leverage
-            },
-            auth=(FREQTRADE_USER, FREQTRADE_PASS),
-            timeout=5
-        )
-
-        print("Freqtrade response:", r.text)
-        print("HTTP status:", r.status_code)
-
-        if r.status_code != 200:
-            print("Trade NOT opened:", pair)
-            return
-
-        active_trades[pair] = {
-            "tp": tp,
-            "sl": sl,
-            "direction": direction,
-            "leverage": leverage,
-            "time": time.time()
-        }
-
-        print("Trade opened:", pair)
-
-    except Exception as e:
-
-        print("FREQTRADE error:", e)
-
-
-def close_trade(pair):
-
-    try:
-
-        requests.post(
-            f"{FREQTRADE_URL}/api/v1/force_exit",
-            json={"pair": pair},
-            auth=(FREQTRADE_USER, FREQTRADE_PASS),
-            timeout=5
-        )
-
-        print("Trade closed:", pair)
-
-    except Exception as e:
-
-        print("Exit error:", e)
 
 
 # ---------- SYMBOLS ----------
@@ -521,61 +422,6 @@ def calculate_levels(price, direction, probability, atr):
     return price, tp, sl
 
 
-# ---------- MONITOR TRADES ----------
-
-def monitor_trades():
-
-    while True:
-
-        try:
-
-            for pair in list(active_trades.keys()):
-
-                trade = active_trades[pair]
-
-                if time.time() - trade["time"] < 15:
-                    continue
-
-                data = requests.get(
-                    f"https://api.binance.com/api/v3/ticker/bookTicker?symbol={pair.replace('/','')}",
-                    timeout=5
-                ).json()
-
-                if "bidPrice" not in data:
-                    continue
-
-                bid = float(data["bidPrice"])
-                ask = float(data["askPrice"])
-
-                tp = trade["tp"]
-                sl = trade["sl"]
-                direction = trade["direction"]
-
-                # wybór właściwej ceny wykonania
-                if direction == "LONG":
-                    price = bid
-                else:
-                    price = ask
-
-                if direction == "LONG":
-
-                    if price >= tp or price <= sl:
-                        close_trade(pair)
-                        del active_trades[pair]
-
-                else:
-
-                    if price <= tp or price >= sl:
-                        close_trade(pair)
-                        del active_trades[pair]
-
-        except Exception as e:
-
-            print("Monitor error:", e)
-
-        time.sleep(3)
-
-
 # ---------- WHALE STREAM ----------
 
 def on_trade(ws,message):
@@ -738,15 +584,6 @@ SL: {adjust_price(sl,entry,direction)}
 
         last_global_alert=now
 
-        open_trade(symbol, entry, tp, sl, direction, leverage, probability)
-
-        signal_candidates.append({
-            "symbol":symbol,
-            "direction":direction,
-            "probability":probability,
-            "leverage":leverage
-        })
-
 # ---------- START SCANNER ----------
 
 def start_scanner():
@@ -779,7 +616,6 @@ def start_scanner():
 
 threading.Thread(target=start_scanner,daemon=True).start()
 threading.Thread(target=start_trade_stream,daemon=True).start()
-threading.Thread(target=monitor_trades,daemon=True).start()
 threading.Thread(target=heartbeat,daemon=True).start()
 
 while True:
