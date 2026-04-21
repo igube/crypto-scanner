@@ -57,7 +57,7 @@ def format_price(price):
     else:
         return round(price, 8)
 
-BOT_TOKEN = "8780297094:AAEZhRej8tpcuCEIc8pLYtno-_UzhKMTBx8"
+BOT_TOKEN = "8780297094:AAHcRVQBPog5l1Qn4P2_XJLLMD8u8CGaSds"
 CHAT_ID = "-1003936288779"
 
 
