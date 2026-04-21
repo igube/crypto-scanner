@@ -220,8 +220,9 @@ def get_symbols():
             timeout=10
         ).json()
 
-    except:
-        return []
+    except Exception as e:
+        print("SYMBOL ERROR:", e, flush=True)
+        return symbol_cache["symbols"] # fallback
 
     valid = set()
 
@@ -608,6 +609,13 @@ def start_trade_stream():
 
         try:
 
+            symbols = get_symbols()
+            print("SYMBOLS:", len(symbols), flush=True)
+            if not symbols:
+                print("NO SYMBOLS - retry...", flush=True)
+                time.sleep(5)
+                continue
+            
             ws=websocket.WebSocketApp(
                 "wss://stream.binance.com:9443/ws/!trade@arr",
                 on_message=on_trade
