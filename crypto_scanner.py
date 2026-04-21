@@ -73,9 +73,6 @@ MIN_24H_VOLUME = 1000000
 last_prices = {}
 last_alert_time = {}
 
-last_global_alert=0
-GLOBAL_ALERT_COOLDOWN=300
-
 cache_orderbook = {}
 cache_volume = {}
 cache_atr = {}
@@ -567,7 +564,7 @@ def on_message(ws,message):
 
     print("SIGNAL:", symbol, probability, flush=True)
     
-    if probability >= 78 and now - last_alert_time[symbol] > ALERT_COOLDOWN and now-last_global_alert> GLOBAL_ALERT_COOLDOWN:
+    if probability >= 78 and now - last_alert_time[symbol] > ALERT_COOLDOWN:
         last_alert_time[symbol] = now
         send_alert(f"""
 Krypto: {symbol.upper()}
@@ -581,8 +578,6 @@ TP: {adjust_price(tp,entry,direction)}
 SL: {adjust_price(sl,entry,direction)}
 
 """)
-
-        last_global_alert=now
 
 # ---------- START SCANNER ----------
 
