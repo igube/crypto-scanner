@@ -72,6 +72,9 @@ MIN_24H_VOLUME = 1000000
 
 last_prices = {}
 last_alert_time = {}
+last_signal = {}
+last_alert_global = 0
+GLOBAL_ALERT_COOLDOWN = 600
 
 cache_orderbook = {}
 cache_volume = {}
@@ -535,7 +538,11 @@ def on_message(ws,message):
 
 
     direction = "LONG" if buy_ratio > sell_ratio else "SHORT"
+    
     if wall_bias and wall_bias!=direction:
+        return
+
+    if symbol in last_signal and last_signal[symbol] == direction:
         return
 
     leverage = calculate_leverage(probability)
@@ -558,26 +565,34 @@ def on_message(ws,message):
         return
         
     now = time.time()
-    global last_global_alert
+    global last_alert_global
     if symbol not in last_alert_time:
         last_alert_time[symbol] = 0
 
     print("SIGNAL:", symbol, probability, flush=True)
     
-    if probability >= 78 and now - last_alert_time[symbol] > ALERT_COOLDOWN:
-        last_alert_time[symbol] = now
+    if (
+        probability >= 85
+        and now - last_alert_time[symbol] > ALERT_COOLDOWN
+        and now - last_alert_global > GLOBAL_ALERT_COOLDOWN
+    ):
+        
         send_alert(f"""
-Krypto: {symbol.upper()}
-Kierunek: {direction}
+Crypto: {symbol.upper()}
+Direction: {direction}
 
-Szanse: {probability}%
-Dźwignia: {leverage}x
+Probability: {probability}%
+Leverage: {leverage}x
 
 Entry: {format_price(entry)}
 TP: {adjust_price(tp,entry,direction)}
 SL: {adjust_price(sl,entry,direction)}
 
 """)
+        
+    last_alert_time[symbol] = now
+    last_alert_global = now
+    last_signal[symbol] = direction
 
 # ---------- START SCANNER ----------
 
