@@ -592,9 +592,9 @@ def on_message(ws,message):
 
 """)
         
-    last_alert_time[symbol] = now
-    last_alert_global = now
-    last_signal[symbol] = direction
+        last_alert_time[symbol] = now
+        last_alert_global = now
+        last_signal[symbol] = direction
 
 # ---------- START SCANNER ----------
 
