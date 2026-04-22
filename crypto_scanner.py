@@ -569,24 +569,26 @@ def on_message(ws,message):
     if symbol not in last_alert_time:
         last_alert_time[symbol] = 0
 
-    print("SIGNAL:", symbol, probability, flush=True)
+    print("🚨 SIGNAL 🚨:", symbol, probability, flush=True)
     
     if (
         probability >= 85
         and now - last_alert_time[symbol] > ALERT_COOLDOWN
         and now - last_alert_global > GLOBAL_ALERT_COOLDOWN
     ):
+        title = "🔥 TOP SIGNAL 🔥" if probability >= 90 else "🚨 SIGNAL 🚨"
+        direction_emoji = "📈" if direction == "LONG" else "📉"
         
         send_alert(f"""
-Crypto: {symbol.upper()}
-Direction: {direction}
+🪙 Crypto: *{symbol.upper()}*
+{direction_emoji} Direction: *{direction}*
 
-Probability: {probability}%
-Leverage: {leverage}x
+🎯 Probability: {probability}%
+⚡ Leverage: {leverage}x
 
-Entry: {format_price(entry)}
-TP: {adjust_price(tp,entry,direction)}
-SL: {adjust_price(sl,entry,direction)}
+💰 Entry: {format_price(entry)}
+🎯 TP: {adjust_price(tp,entry,direction)}
+🛑 SL: {adjust_price(sl,entry,direction)}
 
 """)
         
