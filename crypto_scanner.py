@@ -568,15 +568,16 @@ def on_message(ws,message):
     global last_alert_global
     if symbol not in last_alert_time:
         last_alert_time[symbol] = 0
-
-    print("🚨 SIGNAL 🚨:", symbol, probability, flush=True)
+        
+    title = "🔥 TOP SIGNAL 🔥" if probability >= 90 else "🚨 SIGNAL 🚨"
+    print(f"{title}: {symbol} {probability}", flush=True)
     
     if (
         probability >= 85
         and now - last_alert_time[symbol] > ALERT_COOLDOWN
         and now - last_alert_global > GLOBAL_ALERT_COOLDOWN
     ):
-        title = "🔥 TOP SIGNAL 🔥" if probability >= 90 else "🚨 SIGNAL 🚨"
+        
         direction_emoji = "📈" if direction == "LONG" else "📉"
         
         send_alert(f"""
