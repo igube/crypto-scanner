@@ -581,6 +581,8 @@ def on_message(ws,message):
         direction_emoji = "📈" if direction == "LONG" else "📉"
         
         send_alert(f"""
+{title}
+
 🪙 Crypto: *{symbol.upper()}*
 {direction_emoji} Direction: *{direction}*
 
