@@ -517,7 +517,7 @@ def on_message(ws,message):
     if symbol not in last_alert_time:
         last_alert_time[symbol] = 0
         
-    title = "🔥 TOP SIGNAL 🔥" if probability >= 90 else "🚨 SIGNAL 🚨"
+    title = "🔥 TOP SIGNAL 🔥" if probability >= 95 else "🚨 SIGNAL 🚨"
     print(f"{title}: {symbol} {probability}", flush=True)
     
     if (
