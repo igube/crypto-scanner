@@ -493,7 +493,7 @@ def on_message(ws,message):
     ):
         return
 
-    leverage = calculate_leverage(probability)
+    leverage = calculate_leverage(probability, atr, price)
 
     if direction == "LONG" and trend < 0:
         return
