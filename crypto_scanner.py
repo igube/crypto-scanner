@@ -4,16 +4,6 @@ import requests
 import time
 import threading
 
-def format_price_by_entry(price, entry):
-
-    entry_str = f"{entry:.10f}".rstrip("0")
-
-    if "." in entry_str:
-        decimals = len(entry_str.split(".")[1])
-    else:
-        decimals = 0
-
-    return round(price, decimals)
 
 def adjust_price(price, entry, direction):
 
@@ -38,24 +28,8 @@ def adjust_price(price, entry, direction):
     return round(rounded, decimals)
 
 def format_price(price):
-
-    if price >= 100:
-        return round(price, 2)
-
-    elif price >= 1:
-        return round(price, 4)
-
-    elif price >= 0.1:
-        return round(price, 5)
-
-    elif price >= 0.01:
-        return round(price, 6)
-
-    elif price >= 0.001:
-        return round(price, 7)
-
-    else:
-        return round(price, 8)
+    return f"{price:.10f}".rstrip("0").rstrip(".")
+    
 
 BOT_TOKEN = "8780297094:AAHcRVQBPog5l1Qn4P2_XJLLMD8u8CGaSds"
 CHAT_ID = "-1003936288779"
@@ -75,6 +49,8 @@ last_alert_time = {}
 last_signal = {}
 last_alert_global = 0
 GLOBAL_ALERT_COOLDOWN = 600
+last_signal_time = {}
+DUPLICATE_SIGNAL_COOLDOWN = 1800 
 
 cache_orderbook = {}
 cache_volume = {}
@@ -345,78 +321,44 @@ def signal_probability(change, volume, buy_ratio, sell_ratio, trend, atr):
     return round(min(probability, 95))
 
 # ---------- LEVERAGE ----------
-def calculate_leverage(probability):
+def calculate_leverage(probability, atr, price):
+    atr_percent = (atr / price) * 100
 
-    if probability < 80:
-        return 3
+    base_lev = 3 + ((probability - 80) / 20) * 7
+    base_lev = max(3, min(base_lev, 10))
 
-    elif probability < 83:
-        return 4
+    volatility_penalty = atr_percent * 1.5
 
-    elif probability < 86:
-        return 5
+    leverage = base_lev - volatility_penalty
 
-    elif probability < 89:
-        return 6
+    return round(max(2, min(leverage, 10)))
 
-    elif probability < 92:
-        return 8
+# ---------- TAKE PROFIT / STOP LOSS ----------
+def calculate_rr(probability):
+    min_rr = 1.5
+    max_rr = 3.0
 
-    elif probability < 95:
-        return 10
+    rr = min_rr + ((probability - 80) / 20) * (max_rr - min_rr)
 
-    else:
-        return 12
-
-# ---------- TAKE PROFIT ----------
-def calculate_tp(probability):
-
-    if probability < 80:
-        return 1.0
-
-    elif probability < 83:
-        return 1.2
-
-    elif probability < 86:
-        return 1.4
-
-    elif probability < 89:
-        return 1.6
-
-    else:
-        return 1.9
+    return round(max(min_rr, min(rr, max_rr)), 2)
 
 # ---------- LEVELS ----------
 
 def calculate_levels(price, direction, probability, atr):
 
-    tp_percent = calculate_tp(probability)
-    sl_percent = tp_percent / 2
+    rr = calculate_rr(probability)
 
-    # procentowe odległości
-    tp_percent_distance = price * (tp_percent / 100)
-    sl_percent_distance = price * (sl_percent / 100)
-
-    # ATR odległości
-    atr_tp_distance = atr * 2.4
-    atr_sl_distance = atr * 1.2
-
-    # wybór większego dystansu
-    tp_distance = max(tp_percent_distance, atr_tp_distance)
-    sl_distance = max(sl_percent_distance, atr_sl_distance)
+    sl_distance = atr * 1.5
+    tp_distance = sl_distance * rr
 
     if direction == "LONG":
-
         tp = price + tp_distance
         sl = price - sl_distance
-
     else:
-
         tp = price - tp_distance
         sl = price + sl_distance
 
-    # minimalna odległość SL (futures safety)
-    if abs((price - sl) / price) < 0.004:
+    if abs((price - sl) / price) < 0.003:
         return None, None, None
 
     return price, tp, sl
@@ -538,11 +480,17 @@ def on_message(ws,message):
 
 
     direction = "LONG" if buy_ratio > sell_ratio else "SHORT"
+
+    now = time.time()
     
     if wall_bias and wall_bias!=direction:
         return
 
-    if symbol in last_signal and last_signal[symbol] == direction:
+    if (
+        symbol in last_signal
+        and last_signal[symbol] == direction
+        and now - last_signal_time.get(symbol, 0) < DUPLICATE_SIGNAL_COOLDOWN
+    ):
         return
 
     leverage = calculate_leverage(probability)
@@ -564,7 +512,7 @@ def on_message(ws,message):
     if entry is None:
         return
         
-    now = time.time()
+    
     global last_alert_global
     if symbol not in last_alert_time:
         last_alert_time[symbol] = 0
@@ -590,14 +538,15 @@ def on_message(ws,message):
 ⚡ Leverage: {leverage}x
 
 💰 Entry: {format_price(entry)}
-🎯 TP: {adjust_price(tp,entry,direction)}
-🛑 SL: {adjust_price(sl,entry,direction)}
+🎯 TP: {format_price(adjust_price(tp,entry,direction))}
+🛑 SL: {format_price(adjust_price(sl,entry,direction))}
 
 """)
         
         last_alert_time[symbol] = now
         last_alert_global = now
         last_signal[symbol] = direction
+        last_signal_time[symbol] = now
 
 # ---------- START SCANNER ----------
 
